@@ -36,11 +36,11 @@ def read_and_create(file_name, chunk_size=1000):
     features_tensor = torch.cat(chunk_list)
     labels_tensor = torch.cat(label_list)
 
-    train_loader, val_loader, num_inputs = prepare_data(features_tensor, labels_tensor)
-    return train_loader, val_loader, num_inputs
+    train_loader, val_loader, test_loader, num_inputs = prepare_data(features_tensor, labels_tensor)
+    return train_loader, val_loader, test_loader, num_inputs
 
 
-def prepare_data(features, labels, train_split=0.7):
+def prepare_data(features, labels, train_split=0.7, val_split=0.2):
 
     #topo_fps = torch.tensor(data['Topological'].tolist())
     # morgan_fps = torch.tensor(data['MorganFP'].tolist()).float()
@@ -51,10 +51,13 @@ def prepare_data(features, labels, train_split=0.7):
 
     num_samples = len(features)
     train_size = int(train_split * num_samples)
+    val_size = int(val_split * num_samples)
+    test_size = num_samples - train_size - val_size
 
     index = np.random.permutation(num_samples)
     train_index = index[:train_size]
-    val_index = index[train_size:]
+    val_index = index[train_size:train_size + val_size]
+    test_index = index[train_size + val_size:]
 
     # train_morgan_fps, train_maccs_fps, train_mol_weights, train_num_atoms, train_num_rings, train_labels = \
     #     morgan_fps[train_index], maccs_fps[train_index], mol_weights[train_index], \
@@ -71,13 +74,16 @@ def prepare_data(features, labels, train_split=0.7):
 
     train_features, train_labels = features[train_index], labels[train_index]
     val_features, val_labels = features[val_index], labels[val_index]
+    test_features, test_labels = features[test_index], labels[test_index]
 
     train_dataset = TensorDataset(train_features, train_labels.unsqueeze(1))
     val_dataset = TensorDataset(val_features, val_labels.unsqueeze(1))
+    test_dataset = TensorDataset(test_features, test_labels.unsqueeze(1))
 
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
     num_inputs = train_features.shape[1]
 
-    return train_loader, val_loader, num_inputs
+    return train_loader, val_loader, test_loader, num_inputs

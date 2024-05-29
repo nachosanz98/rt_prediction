@@ -15,7 +15,7 @@ def init_weights(m):
 def main():
     file_name = 'SMRT_vectorfingerprints.csv'
 
-    train_loader, val_loader, num_inputs = read_and_create(file_name)
+    train_loader, val_loader, test_loader, num_inputs = read_and_create(file_name)
 
     num_hiddens = 1024
     num_outputs = 1
@@ -38,6 +38,8 @@ def main():
 
     time_ = (after - before) / 60
     print('Time of inference in min: ', time_)
+
+    evaluate_model(model, test_loader, loss_fn)
 
 def training_model(model, train_loader, val_loader, criterion, optimizer, epochs, timestamp):
 
@@ -88,9 +90,9 @@ def training_model(model, train_loader, val_loader, criterion, optimizer, epochs
         else:
             epochs_no_improve += 1
 
-        if epochs_no_improve >= early_stopping_patience:
-            print(f"Early stopping at epoch {epoch + 1}")
-            break
+        # if epochs_no_improve >= early_stopping_patience:
+        #     print(f"Early stopping at epoch {epoch + 1}")
+        #     break
 
     print('Saving the model...')
     name_model = f'{timestamp}_function'
@@ -117,7 +119,27 @@ def training_model(model, train_loader, val_loader, criterion, optimizer, epochs
     plt.tight_layout()
     #plt.show()
 
+def evaluate_model(model, test_loader, criterion):
+    model.eval()
 
+    test_loss = 0.0
+    correct = 0
+    total = 0
+
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            test_loss += loss.item() * inputs.size(0)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    test_loss /= len(test_loader.dataset)
+    accuracy = correct / total
+
+    print(f'Test Loss: {test_loss:.4f}, Test Accuracy: {accuracy:.4f}')
+    return test_loss, accuracy
 
 
 if __name__ == '__main__':
