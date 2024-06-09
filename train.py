@@ -20,14 +20,13 @@ def main():
     num_hiddens = 1024
     num_outputs = 1
     lr = 0.01
-    weight_decay = 1e-6
-    sigma = 0.00001
+    weight_decay = 1e-4
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
-    model = NeuronalNetwork(num_inputs, num_outputs, num_hiddens, lr, sigma)
+    model = NeuronalNetwork(num_inputs, num_outputs, num_hiddens)
     model.apply(init_weights)
 
-    loss_fn = torch.nn.MSELoss()
+    loss_fn = torch.nn.L1Loss() #Comparable a MAE
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     epochs = 100
@@ -45,7 +44,6 @@ def training_model(model, train_loader, val_loader, criterion, optimizer, epochs
 
     train_losses = []
     val_losses = []
-    val_accuracies = []
     early_stopping_patience = 20
     epochs_no_improve = 0
     best_vloss = float('inf')
@@ -59,7 +57,7 @@ def training_model(model, train_loader, val_loader, criterion, optimizer, epochs
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
-            running_loss += loss.item() * inputs.size(0)
+            running_loss += loss.item()
         
         epoch_loss = running_loss / len(train_loader.dataset)
         train_losses.append(epoch_loss)
@@ -67,22 +65,15 @@ def training_model(model, train_loader, val_loader, criterion, optimizer, epochs
 
         model.eval()
         val_loss = 0.0
-        correct = 0
-        total = 0
         with torch.no_grad():
             for inputs, labels in val_loader:
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
-                val_loss += loss.item() * inputs.size(0)
-                _, predicted = torch.max(outputs, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
+                val_loss += loss.item()
         
         val_loss /= len(val_loader.dataset)
-        val_accuracy = correct / total
         val_losses.append(val_loss)
-        val_accuracies.append(val_accuracy)
-        print(f"Validation loss: {val_loss:.4f}, Validation accuracy: {val_accuracy:.4f}")
+        print(f"Validation loss: {val_loss:.4f}")
 
         if val_loss < best_vloss:
             best_vloss = val_loss
@@ -90,9 +81,9 @@ def training_model(model, train_loader, val_loader, criterion, optimizer, epochs
         else:
             epochs_no_improve += 1
 
-        # if epochs_no_improve >= early_stopping_patience:
-        #     print(f"Early stopping at epoch {epoch + 1}")
-        #     break
+        if epochs_no_improve >= early_stopping_patience:
+            print(f"Early stopping at epoch {epoch + 1}")
+            break
 
     print('Saving the model...')
     name_model = f'{timestamp}_function'
@@ -100,7 +91,7 @@ def training_model(model, train_loader, val_loader, criterion, optimizer, epochs
 
     plt.figure(figsize=(10, 4))
 
-    plt.subplot(1, 2, 1)
+    plt.figure(figsize=(10, 4))
     plt.plot(range(1, epochs+1), train_losses, label='Training Loss')
     plt.plot(range(1, epochs+1), val_losses, label='Validation Loss')
     plt.xlabel('Epochs')
@@ -108,38 +99,26 @@ def training_model(model, train_loader, val_loader, criterion, optimizer, epochs
     plt.title('Training and Validation Loss')
     plt.legend()
 
-    plt.subplot(1, 2, 2)
-    plt.plot(range(1, epochs+1), val_accuracies, label='Validation Accuracy')
-    plt.xlabel('Epochs')
-    plt.ylabel('Accuracy')
-    plt.title('Validation Accuracy')
-    plt.legend()
-    plt.savefig(f'images/training_validation_loss_{timestamp}_function.png')
 
     plt.tight_layout()
+    plt.savefig(f'images/training_validation_loss_{timestamp}_function.png')
     #plt.show()
 
 def evaluate_model(model, test_loader, criterion):
     model.eval()
 
     test_loss = 0.0
-    correct = 0
-    total = 0
 
     with torch.no_grad():
         for inputs, labels in test_loader:
             outputs = model(inputs)
             loss = criterion(outputs, labels)
-            test_loss += loss.item() * inputs.size(0)
-            _, predicted = torch.max(outputs, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+            test_loss += loss.item()
 
     test_loss /= len(test_loader.dataset)
-    accuracy = correct / total
 
-    print(f'Test Loss: {test_loss:.4f}, Test Accuracy: {accuracy:.4f}')
-    return test_loss, accuracy
+    print(f'Test Loss: {test_loss:.4f}')
+    return test_loss
 
 
 if __name__ == '__main__':

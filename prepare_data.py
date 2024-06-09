@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from sklearn.preprocessing  import StandardScaler
 import torch
 from torch.utils import data
 from torch.utils.data import TensorDataset, DataLoader
@@ -33,10 +34,10 @@ def read_and_create(file_name, chunk_size=1000):
     # data['NumAtoms'] = data['Molecule'].apply(Descriptors.HeavyAtomCount)
     # data['NumRings'] = data['Molecule'].apply(Descriptors.RingCount)
 
-    features_tensor = torch.cat(chunk_list)
-    labels_tensor = torch.cat(label_list)
+    features = torch.cat(chunk_list)
+    labels = torch.cat(label_list)
 
-    train_loader, val_loader, test_loader, num_inputs = prepare_data(features_tensor, labels_tensor)
+    train_loader, val_loader, test_loader, num_inputs = prepare_data(features, labels)
     return train_loader, val_loader, test_loader, num_inputs
 
 
@@ -57,7 +58,7 @@ def prepare_data(features, labels, train_split=0.7, val_split=0.2):
     index = np.random.permutation(num_samples)
     train_index = index[:train_size]
     val_index = index[train_size:train_size + val_size]
-    test_index = index[train_size + val_size:]
+    test_index = index[:test_size]
 
     # train_morgan_fps, train_maccs_fps, train_mol_weights, train_num_atoms, train_num_rings, train_labels = \
     #     morgan_fps[train_index], maccs_fps[train_index], mol_weights[train_index], \
@@ -75,6 +76,19 @@ def prepare_data(features, labels, train_split=0.7, val_split=0.2):
     train_features, train_labels = features[train_index], labels[train_index]
     val_features, val_labels = features[val_index], labels[val_index]
     test_features, test_labels = features[test_index], labels[test_index]
+
+    # Normalize
+    scaler = StandardScaler()
+    train_features = scaler.fit_transform(train_features)
+    val_features = scaler.transform(val_features)
+    test_features = scaler.transform(test_features)
+
+    train_features = torch.tensor(train_features).float()
+    val_features = torch.tensor(val_features).float()
+    test_features = torch.tensor(test_features).float()
+    train_labels = train_labels.clone().detach().float()
+    val_labels = val_labels.clone().detach().float()
+    test_labels = test_labels.clone().detach().float()
 
     train_dataset = TensorDataset(train_features, train_labels.unsqueeze(1))
     val_dataset = TensorDataset(val_features, val_labels.unsqueeze(1))
