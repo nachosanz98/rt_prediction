@@ -19,9 +19,9 @@ def main():
     file_name = 'SMRT_vectorfingerprints.csv'
 
     train_loader, val_loader, test_loader, num_inputs = read_and_create(file_name)
+    print('Data is ready')
 
     num_outputs = 1
-    weight_decay = 1e-4
 
     # PyGAD parameters
     num_generations = 50
@@ -45,7 +45,7 @@ def main():
         step_size = int(solution[5])
         weight_decay = solution[6]
 
-        model = NeuralNetwork(num_inputs, num_outputs, num_hiddens_list)
+        model = NeuralNetwork(num_inputs, num_outputs, num_hiddens_list).to(device)
         model.apply(init_weights)
         criterion = nn.L1Loss()
 
@@ -55,13 +55,13 @@ def main():
             optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
         elif optimizer_name == 2:
             optimizer = optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-        
+
         scheduler = StepLR(optimizer, step_size=step_size, gamma=0.1)
-        
+
         early_stopping_patience = 10
         epochs_no_improve = 0
         best_vloss = float('inf')
-        
+
         for epoch in range(100):
             model.train()
             for inputs, labels in train_loader:
@@ -71,9 +71,9 @@ def main():
                 loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
-            
+
             scheduler.step()
-        
+
             model.eval()
             val_loss = 0.0
             with torch.no_grad():
@@ -82,8 +82,9 @@ def main():
                     outputs = model(inputs)
                     loss = criterion(outputs, labels)
                     val_loss += loss.item()
-        
+
             val_loss /= len(val_loader.dataset)
+            print(f"Epoch {epoch}, Val Loss: {val_loss}")
 
             if val_loss < best_vloss:
                 best_vloss = val_loss
@@ -93,13 +94,13 @@ def main():
 
             if epochs_no_improve >= early_stopping_patience:
                 break
-            
+
         return -best_vloss
 
     def on_generation(ga_instance):
         progress = (ga_instance.generations_completed / ga_instance.num_generations) * 100
         print(f"Generations Completed: {ga_instance.generations_completed}, Progress: {progress:.2f}%")
-    
+
     ga_instance = pygad.GA(num_generations=num_generations,
                            num_parents_mating=num_parents_mating,
                            fitness_func=fitness_function,
@@ -119,14 +120,14 @@ def main():
     step_size = int(solution[5])
     weight_decay = solution[6]
 
-    model = NeuralNetwork(num_inputs, num_outputs, num_hiddens_list)
+    model = NeuralNetwork(num_inputs, num_outputs, num_hiddens_list).to(device)
     model.apply(init_weights)
 
     loss_mae = torch.nn.L1Loss() # Comparable a MAE
     # loss_mse = torch.nn.MSELoss()
 
     if optimizer_name == 0:
-            optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+        optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     elif optimizer_name == 1:
         optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     elif optimizer_name == 2:
@@ -138,7 +139,7 @@ def main():
     loss_name = f'MAE_W={weight_decay}'
 
     before = time()
-    training_model(model, train_loader, val_loader, loss_mae, optimizer, epochs, scheduler, loss_name='MAE_W=4')
+    training_model(model, train_loader, val_loader, loss_mae, optimizer, epochs, scheduler, loss_name)
     after = time()
 
     time_ = (after - before) / 60
@@ -159,7 +160,7 @@ def training_model(model, train_loader, val_loader, criterion, optimizer, epochs
 
     train_losses = []
     val_losses = []
-    early_stopping_patience = 20
+    early_stopping_patience = 10
     epochs_no_improve = 0
     best_vloss = float('inf')
 
@@ -174,9 +175,9 @@ def training_model(model, train_loader, val_loader, criterion, optimizer, epochs
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
-        
+
         scheduler.step()
-        
+
         epoch_loss = running_loss / len(train_loader.dataset)
         train_losses.append(epoch_loss)
         print(f"Epoch {epoch+1}/{epochs}, Training loss: {epoch_loss:.4f}")
@@ -189,7 +190,7 @@ def training_model(model, train_loader, val_loader, criterion, optimizer, epochs
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
                 val_loss += loss.item()
-        
+
         val_loss /= len(val_loader.dataset)
         val_losses.append(val_loss)
         print(f"Validation loss: {val_loss:.4f}")

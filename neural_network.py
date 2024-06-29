@@ -16,13 +16,13 @@ class NeuralNetwork(nn.Module):
 
         self.output_layer = nn.Linear(input_size, num_outputs)
         self.dropout = nn.Dropout(0.5)
-    
+
     def forward(self, X):
         X = X.view(-1, self.layers[0].in_features)
-        
+
         for layer, batch_norm in zip(self.layers, self.batch_norms):
             X = torch.relu(batch_norm(layer(X)))
             X = self.dropout(X)
-        
+
         output = self.output_layer(X)
         return output
