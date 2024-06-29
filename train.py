@@ -7,6 +7,9 @@ from prepare_data import read_and_create
 from torch import nn, optim
 from torch.optim.lr_scheduler import StepLR
 from datetime import datetime
+import numpy as np
+import scipy.stats as stats
+from statsmodels.graphics.regressionplots import plot_leverage_resid2
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -147,6 +150,13 @@ def main():
 
     evaluate_model(model, test_loader, loss_mae)
 
+    plot_actual_vs_predicted(model, test_loader)
+    plot_residuals_histogram(model, test_loader)
+    plot_residuals_vs_fitted(model, test_loader)
+    plot_qq(model, test_loader)
+    plot_scale_location(model, test_loader)
+    plot_residuals_vs_leverage(model, test_loader)
+
     # before = time()
     # training_model(model, train_loader, val_loader, loss_mse, optimizer, epochs, loss_name='MSE_W=2')
     # after = time()
@@ -239,6 +249,115 @@ def evaluate_model(model, test_loader, criterion):
 
     print(f"Test Loss: {test_loss:.4f}")
     return test_loss
+
+def plot_actual_vs_predicted(model, test_loader):
+    model.eval()
+    predictions = []
+    actuals = []
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            predictions.extend(outputs.cpu().numpy())
+            actuals.extend(labels.cpu().numpy())
+
+    plt.figure(figsize=(10, 6))
+    plt.scatter(actuals, predictions, alpha=0.5)
+    plt.plot([min(actuals), max(actuals)], [min(actuals), max(actuals)], 'r--')
+    plt.title('Actual vs Predicted')
+    plt.xlabel('Actual Values')
+    plt.ylabel('Predicted Values')
+    plt.savefig('images/actual_vs_predicted.png')
+
+def plot_residuals_histogram(model, test_loader):
+    model.eval()
+    residuals = []
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            residuals.extend((outputs - labels).cpu().numpy())
+
+    plt.figure(figsize=(10, 6))
+    plt.hist(residuals, bins=50, color='blue', alpha=0.7)
+    plt.title('Histogram of Residuals')
+    plt.xlabel('Residuals')
+    plt.ylabel('Frequency')
+    plt.savefig('images/residuals_histogram.png')
+
+def plot_residuals_vs_fitted(model, test_loader):
+    model.eval()
+    residuals = []
+    fitted = []
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            residuals.extend((outputs - labels).cpu().numpy())
+            fitted.extend(outputs.cpu().numpy())
+
+    plt.figure(figsize=(10, 6))
+    plt.scatter(fitted, residuals, alpha=0.5)
+    plt.axhline(y=0, color='r', linestyle='--')
+    plt.title('Residuals vs Fitted Values')
+    plt.xlabel('Fitted Values')
+    plt.ylabel('Residuals')
+    plt.savefig('images/residuals_vs_fitted.png')
+
+def plot_qq(model, test_loader):
+    model.eval()
+    residuals = []
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            residuals.extend((outputs - labels).cpu().numpy())
+
+    plt.figure(figsize=(10, 6))
+    stats.probplot(residuals, dist="norm", plot=plt)
+    plt.title('Normality Q-Q Plot')
+    plt.savefig('images/qq_plot.png')
+
+def plot_scale_location(model, test_loader):
+    model.eval()
+    residuals = []
+    fitted = []
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            residuals.extend((outputs - labels).cpu().numpy())
+            fitted.extend(outputs.cpu().numpy())
+
+    residuals = np.array(residuals)
+    fitted = np.array(fitted)
+    sqrt_residuals = np.sqrt(np.abs(residuals))
+
+    plt.figure(figsize=(10, 6))
+    plt.scatter(fitted, sqrt_residuals, alpha=0.5)
+    plt.axhline(y=0, color='r', linestyle='--')
+    plt.title('Scale Location Plot')
+    plt.xlabel('Fitted Values')
+    plt.ylabel('Sqrt(|Residuals|)')
+    plt.savefig('images/scale_location.png')
+
+def plot_residuals_vs_leverage(model, test_loader):
+    model.eval()
+    residuals = []
+    leverage = []
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            residuals.extend((outputs - labels).cpu().numpy())
+            leverage.extend(inputs.cpu().numpy()) # Placeholder, calculate leverage correctly
+
+    plt.figure(figsize=(10, 6))
+    plot_leverage_resid2(model, ax=plt.gca())
+    plt.title('Residuals vs Leverage')
+    plt.savefig('images/residuals_vs_leverage.png')
+    plt.show()
+
 
 if __name__ == '__main__':
     main()
