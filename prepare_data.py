@@ -4,7 +4,6 @@ from sklearn.preprocessing  import StandardScaler
 import torch
 from torch.utils import data
 from torch.utils.data import TensorDataset, DataLoader
-import matplotlib as plt
 
 def read_and_create(file_name, chunk_size=1000):
     chunk_list = []
@@ -20,24 +19,12 @@ def read_and_create(file_name, chunk_size=1000):
 
         chunk_list.append(features_tensor)
         label_list.append(labels_tensor)
-    
-    fig, axes = plt.subplots(2, 1, figsize=(10, 8))
-    axes[0].hist(features.numpy().flatten(), bins=50, color='blue', alpha=0.7)
-    axes[0].set_title('Feature Distribution Histogram')
-    axes[0].set_xlabel('Feature Values')
-    axes[0].set_ylabel('Frequency')
 
-    axes[1].boxplot(features.numpy().T, vert=False)
-    axes[1].set_title('Feature Distribution Boxplot')
-    axes[1].set_xlabel('Feature Values')
-    axes[1].set_ylabel('Features')
-
-    plt.tight_layout()
-    plt.savefig('images/data_distribution.png')
     features = torch.cat(chunk_list)
     labels = torch.cat(label_list)
 
     train_loader, val_loader, test_loader, num_inputs = prepare_data(features, labels)
+
     return train_loader, val_loader, test_loader, num_inputs
 
 
@@ -46,12 +33,11 @@ def prepare_data(features, labels, train_split=0.7, val_split=0.2):
     num_samples = len(features)
     train_size = int(train_split * num_samples)
     val_size = int(val_split * num_samples)
-    test_size = num_samples - train_size - val_size
 
     index = np.random.permutation(num_samples)
     train_index = index[:train_size]
     val_index = index[train_size:train_size + val_size]
-    test_index = index[:test_size]
+    test_index = index[train_size + val_size:]
 
     train_features, train_labels = features[train_index], labels[train_index]
     val_features, val_labels = features[val_index], labels[val_index]
