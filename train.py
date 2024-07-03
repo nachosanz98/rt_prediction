@@ -83,7 +83,7 @@ def main():
                     inputs, labels = inputs.to(device), labels.to(device)
                     outputs = model(inputs)
                     loss = criterion(outputs, labels)
-                    val_loss += loss.item()
+                    val_loss += loss.item() * inputs.size(0)
 
             val_loss /= len(val_loader.dataset)
 
